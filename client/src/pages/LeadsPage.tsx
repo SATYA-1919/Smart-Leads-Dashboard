@@ -4,6 +4,7 @@ import {
   createLeadRequest,
   deleteLeadRequest,
   exportLeadsCsvRequest,
+  getLeadStatsRequest,
   listLeadsRequest,
   updateLeadRequest,
   type CreateLeadPayload,
@@ -12,16 +13,17 @@ import {
 import { extractApiError } from '@/api/client';
 import { useAuthStore } from '@/store/authStore';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import type { Lead, LeadFilters } from '@/types';
+import type { LeadFilters } from '@/types';
 import { LeadFiltersBar } from '@/components/leads/LeadFiltersBar';
 import { LeadTable } from '@/components/leads/LeadTable';
 import { Pagination } from '@/components/leads/Pagination';
-import { LeadForm, type LeadFormData } from '@/components/leads/LeadForm';
-import { LeadDetail } from '@/components/leads/LeadDetail';
-import { Modal } from '@/components/ui/Modal';
+import type { LeadFormData } from '@/components/leads/LeadForm';
+import { LeadModals, type LeadModalState } from '@/components/leads/LeadModals';
+import { LeadStats } from '@/components/leads/LeadStats';
 import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { DownloadIcon, PlusIcon } from '@/components/ui/icons';
 
 const DEFAULT_FILTERS: LeadFilters = {
   page: 1,
@@ -29,12 +31,8 @@ const DEFAULT_FILTERS: LeadFilters = {
   sort: 'latest',
 };
 
-type ModalState =
-  | { kind: 'none' }
-  | { kind: 'create' }
-  | { kind: 'edit'; lead: Lead }
-  | { kind: 'view'; lead: Lead }
-  | { kind: 'delete'; lead: Lead };
+const STATS_QUERY_KEY = ['leadStats'] as const;
+const LEADS_QUERY_KEY = ['leads'] as const;
 
 export function LeadsPage() {
   const { user } = useAuthStore();
@@ -44,7 +42,7 @@ export function LeadsPage() {
   const [filters, setFilters] = useState<LeadFilters>(DEFAULT_FILTERS);
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebouncedValue(searchInput, 400);
-  const [modal, setModal] = useState<ModalState>({ kind: 'none' });
+  const [modal, setModal] = useState<LeadModalState>({ kind: 'none' });
   const [actionError, setActionError] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
 
@@ -58,16 +56,26 @@ export function LeadsPage() {
   }, [debouncedSearch]);
 
   const leadsQuery = useQuery({
-    queryKey: ['leads', filters],
+    queryKey: [...LEADS_QUERY_KEY, filters],
     queryFn: () => listLeadsRequest(filters),
     placeholderData: keepPreviousData,
   });
 
+  const statsQuery = useQuery({
+    queryKey: STATS_QUERY_KEY,
+    queryFn: getLeadStatsRequest,
+  });
+
+  const invalidateLists = (): void => {
+    queryClient.invalidateQueries({ queryKey: LEADS_QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: STATS_QUERY_KEY });
+  };
+
   const createMutation = useMutation({
     mutationFn: (payload: CreateLeadPayload) => createLeadRequest(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
-      setModal({ kind: 'none' });
+      invalidateLists();
+      closeModal();
     },
   });
 
@@ -75,16 +83,16 @@ export function LeadsPage() {
     mutationFn: (args: { id: string; payload: UpdateLeadPayload }) =>
       updateLeadRequest(args.id, args.payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
-      setModal({ kind: 'none' });
+      invalidateLists();
+      closeModal();
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteLeadRequest(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
-      setModal({ kind: 'none' });
+      invalidateLists();
+      closeModal();
     },
   });
 
@@ -151,42 +159,66 @@ export function LeadsPage() {
     }
   };
 
-  const closeModal = (): void => {
+  function closeModal(): void {
     setModal({ kind: 'none' });
     setActionError(null);
-  };
+  }
 
   const leads = leadsQuery.data?.leads ?? [];
   const meta = leadsQuery.data?.meta;
+  const stats = statsQuery.data ?? {
+    total: 0,
+    byStatus: { New: 0, Contacted: 0, Qualified: 0, Lost: 0 },
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+    <div className="space-y-6">
+      {/* Page header */}
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-2xl font-bold">Leads</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Manage your sales pipeline
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-3xl">
+            Leads
+          </h1>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            Welcome back{user ? `, ${user.name.split(' ')[0]}` : ''} — here&apos;s what&apos;s
+            happening in your pipeline.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full gap-2 sm:w-auto">
           {isAdmin && (
             <button
               type="button"
-              className="btn-secondary"
+              className="btn-secondary flex-1 sm:flex-initial"
               onClick={handleExport}
               disabled={exportLoading}
             >
-              {exportLoading ? <Spinner size="sm" /> : 'Export CSV'}
+              {exportLoading ? (
+                <Spinner size="sm" />
+              ) : (
+                <>
+                  <DownloadIcon className="h-4 w-4" />
+                  <span>Export CSV</span>
+                </>
+              )}
             </button>
           )}
-          <button type="button" className="btn-primary" onClick={() => setModal({ kind: 'create' })}>
-            + New Lead
+          <button
+            type="button"
+            className="btn-primary flex-1 sm:flex-initial"
+            onClick={() => setModal({ kind: 'create' })}
+          >
+            <PlusIcon className="h-4 w-4" />
+            <span>New Lead</span>
           </button>
         </div>
       </div>
 
-      {actionError && <Alert variant="error">{actionError}</Alert>}
+      {/* Stats */}
+      <LeadStats value={stats} loading={statsQuery.isLoading} />
 
+      {actionError && modal.kind === 'none' && <Alert variant="error">{actionError}</Alert>}
+
+      {/* Filters */}
       <LeadFiltersBar
         filters={filters}
         searchInput={searchInput}
@@ -195,9 +227,10 @@ export function LeadsPage() {
         onReset={handleReset}
       />
 
+      {/* Table card */}
       <div className="card overflow-hidden">
         {leadsQuery.isLoading ? (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex items-center justify-center py-20">
             <Spinner size="lg" />
           </div>
         ) : leadsQuery.isError ? (
@@ -207,10 +240,15 @@ export function LeadsPage() {
         ) : leads.length === 0 ? (
           <EmptyState
             title="No leads found"
-            description="Try adjusting filters, or create your first lead."
+            description="Try adjusting your filters, or create your first lead to get started."
             action={
-              <button className="btn-primary" onClick={() => setModal({ kind: 'create' })}>
-                + New Lead
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setModal({ kind: 'create' })}
+              >
+                <PlusIcon className="h-4 w-4" />
+                New Lead
               </button>
             }
           />
@@ -223,58 +261,25 @@ export function LeadsPage() {
               onEdit={(lead) => setModal({ kind: 'edit', lead })}
               onDelete={(lead) => setModal({ kind: 'delete', lead })}
             />
-            {meta && <Pagination meta={meta} onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))} />}
+            {meta && (
+              <Pagination
+                meta={meta}
+                onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))}
+              />
+            )}
           </>
         )}
       </div>
 
-      <Modal open={modal.kind === 'create'} onClose={closeModal} title="Create lead">
-        {actionError && <Alert className="mb-3" variant="error">{actionError}</Alert>}
-        <LeadForm onSubmit={handleCreate} onCancel={closeModal} submitLabel="Create" />
-      </Modal>
-
-      <Modal
-        open={modal.kind === 'edit'}
+      <LeadModals
+        state={modal}
+        actionError={actionError}
+        isDeleting={deleteMutation.isPending}
         onClose={closeModal}
-        title="Edit lead"
-      >
-        {actionError && <Alert className="mb-3" variant="error">{actionError}</Alert>}
-        {modal.kind === 'edit' && (
-          <LeadForm
-            initialValues={modal.lead}
-            onSubmit={handleEdit}
-            onCancel={closeModal}
-            submitLabel="Save changes"
-          />
-        )}
-      </Modal>
-
-      <Modal open={modal.kind === 'view'} onClose={closeModal} title="Lead details">
-        {modal.kind === 'view' && <LeadDetail lead={modal.lead} />}
-        <div className="mt-4 flex justify-end">
-          <button className="btn-secondary" onClick={closeModal}>Close</button>
-        </div>
-      </Modal>
-
-      <Modal open={modal.kind === 'delete'} onClose={closeModal} title="Delete lead" size="sm">
-        {actionError && <Alert className="mb-3" variant="error">{actionError}</Alert>}
-        {modal.kind === 'delete' && (
-          <>
-            <p className="text-sm text-slate-700 dark:text-slate-300">
-              Are you sure you want to delete <span className="font-semibold">{modal.lead.name}</span>?
-              This action cannot be undone.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button className="btn-secondary" onClick={closeModal} disabled={deleteMutation.isPending}>
-                Cancel
-              </button>
-              <button className="btn-danger" onClick={handleDelete} disabled={deleteMutation.isPending}>
-                {deleteMutation.isPending ? <Spinner size="sm" className="text-white" /> : 'Delete'}
-              </button>
-            </div>
-          </>
-        )}
-      </Modal>
+        onCreate={handleCreate}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }

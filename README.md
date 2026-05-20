@@ -48,7 +48,13 @@ A full-stack **Lead Management Dashboard** built with the MERN stack and TypeScr
 - Streams a `text/csv` response with proper `Content-Disposition` for browser download
 
 ### UI / UX
-- Responsive layout (mobile → desktop)
+- Split-screen branded **auth** pages with a "use" button for demo accounts
+- Sticky app header with gradient logo, avatar chip, and SVG theme toggle
+- **Stats overview** cards (total / new / qualified / lost) on the dashboard
+- Polished lead table with avatars, status dots, source pills, and icon-only action buttons
+- Sliding modals (slide-up on mobile, centered on desktop) for create / edit / view / delete
+- Filter bar with active-filter chip, "clear all" shortcut, and search icon
+- Responsive layout (mobile → desktop), full keyboard + screen reader support
 - Loading, empty, and error states everywhere
 - Form validation (Zod on both client and server)
 - **Dark mode** with persisted preference + system preference fallback
@@ -212,6 +218,7 @@ All routes require `Authorization: Bearer <token>`.
 | PATCH  | `/leads/:id`          | Any          | Update a lead                        |
 | DELETE | `/leads/:id`          | **Admin**    | Delete a lead                        |
 | GET    | `/leads/export`       | **Admin**    | Export filtered leads as CSV         |
+| GET    | `/leads/stats`        | Any          | Total leads + counts grouped by status |
 
 **Query parameters for `GET /leads` and `GET /leads/export`:**
 

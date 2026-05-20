@@ -7,6 +7,7 @@ import {
   exportLeadsCsv,
   getLead,
   getLeads,
+  getLeadStats,
   updateLead,
 } from '../controllers/lead.controller';
 import {
@@ -23,6 +24,7 @@ router.use(authenticate);
 // Both Admin and SalesUser can read and create/update.
 // Only Admin can delete or export to CSV.
 router.get('/export', validate(exportLeadsQuerySchema, 'query'), authorize('Admin'), exportLeadsCsv);
+router.get('/stats', getLeadStats);
 
 router.get('/', validate(listLeadsQuerySchema, 'query'), getLeads);
 router.post('/', validate(createLeadSchema), createLead);

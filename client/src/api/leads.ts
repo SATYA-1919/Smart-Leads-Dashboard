@@ -69,3 +69,13 @@ export async function exportLeadsCsvRequest(
   });
   return res.data as Blob;
 }
+
+export interface LeadStatsResponse {
+  total: number;
+  byStatus: Record<LeadStatus, number>;
+}
+
+export async function getLeadStatsRequest(): Promise<LeadStatsResponse> {
+  const res = await apiClient.get<ApiSuccess<LeadStatsResponse>>('/leads/stats');
+  return res.data.data;
+}

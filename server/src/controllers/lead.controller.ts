@@ -61,6 +61,26 @@ export const getLeads = asyncHandler(async (req: Request, res: Response) => {
   res.json({ success: true, data: leads, meta });
 });
 
+export const getLeadStats = asyncHandler(async (_req: Request, res: Response) => {
+  const aggregation = await Lead.aggregate<{ _id: string; count: number }>([
+    { $group: { _id: '$status', count: { $sum: 1 } } },
+  ]);
+
+  const byStatus: Record<string, number> = {
+    New: 0,
+    Contacted: 0,
+    Qualified: 0,
+    Lost: 0,
+  };
+  let total = 0;
+  for (const row of aggregation) {
+    if (row._id in byStatus) byStatus[row._id] = row.count;
+    total += row.count;
+  }
+
+  res.json({ success: true, data: { total, byStatus } });
+});
+
 export const exportLeadsCsv = asyncHandler(async (req: Request, res: Response) => {
   const query = req.query as unknown as ExportLeadsQuery;
   const filter = buildLeadFilter(query);

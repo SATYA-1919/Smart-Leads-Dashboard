@@ -20,7 +20,12 @@ interface LeadFormProps {
   submitLabel?: string;
 }
 
-export function LeadForm({ initialValues, onSubmit, onCancel, submitLabel = 'Save' }: LeadFormProps) {
+export function LeadForm({
+  initialValues,
+  onSubmit,
+  onCancel,
+  submitLabel = 'Save',
+}: LeadFormProps) {
   const {
     register,
     handleSubmit,
@@ -38,42 +43,75 @@ export function LeadForm({ initialValues, onSubmit, onCancel, submitLabel = 'Sav
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       <div>
-        <label className="label" htmlFor="lead-name">Name</label>
-        <input id="lead-name" type="text" className="input" {...register('name')} />
+        <label className="label" htmlFor="lead-name">
+          Full name
+        </label>
+        <input
+          id="lead-name"
+          type="text"
+          placeholder="e.g. Rahul Sharma"
+          className="input"
+          {...register('name')}
+        />
         {errors.name && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.name.message}</p>
+          <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+            {errors.name.message}
+          </p>
         )}
       </div>
 
       <div>
-        <label className="label" htmlFor="lead-email">Email</label>
-        <input id="lead-email" type="email" className="input" {...register('email')} />
+        <label className="label" htmlFor="lead-email">
+          Email
+        </label>
+        <input
+          id="lead-email"
+          type="email"
+          placeholder="rahul@example.com"
+          className="input"
+          {...register('email')}
+        />
         {errors.email && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.email.message}</p>
+          <p className="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+            {errors.email.message}
+          </p>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label className="label" htmlFor="lead-status">Status</label>
+          <label className="label" htmlFor="lead-status">
+            Status
+          </label>
           <select id="lead-status" className="input" {...register('status')}>
             {LEAD_STATUSES.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>
+                {s}
+              </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="label" htmlFor="lead-source">Source</label>
+          <label className="label" htmlFor="lead-source">
+            Source
+          </label>
           <select id="lead-source" className="input" {...register('source')}>
             {LEAD_SOURCES.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>
+                {s}
+              </option>
             ))}
           </select>
         </div>
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <button type="button" className="btn-secondary" onClick={onCancel} disabled={isSubmitting}>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={onCancel}
+          disabled={isSubmitting}
+        >
           Cancel
         </button>
         <button type="submit" className="btn-primary" disabled={isSubmitting}>
