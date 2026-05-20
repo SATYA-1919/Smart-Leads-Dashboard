@@ -1,7 +1,14 @@
 import axios, { AxiosError } from 'axios';
 
+function resolveBaseUrl(): string {
+  const raw = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+  if (!raw) return '/api';
+  const trimmed = raw.replace(/\/+$/, '');
+  return /\/api$/i.test(trimmed) ? trimmed : `${trimmed}/api`;
+}
+
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: resolveBaseUrl(),
   headers: { 'Content-Type': 'application/json' },
 });
 
