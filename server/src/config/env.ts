@@ -9,7 +9,14 @@ const envSchema = z.object({
   MONGO_URI: z.string().min(1, 'MONGO_URI is required'),
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
-  CLIENT_ORIGIN: z.string().url().default('http://localhost:5173'),
+  // Comma-separated list of allowed CORS origins (e.g. your Vercel URL + localhost).
+  CLIENT_ORIGIN: z
+    .string()
+    .default('http://localhost:5173')
+    .transform((val) => val.split(',').map((s) => s.trim()).filter(Boolean))
+    .refine((arr) => arr.length > 0 && arr.every((u) => /^https?:\/\/.+/i.test(u)), {
+      message: 'CLIENT_ORIGIN must be a comma-separated list of http(s) URLs',
+    }),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -13,6 +13,7 @@ export function createApp(): Express {
   app.use(helmet());
   app.use(
     cors({
+      // env.CLIENT_ORIGIN is a string[] of allowed origins.
       origin: env.CLIENT_ORIGIN,
       credentials: true,
     })
